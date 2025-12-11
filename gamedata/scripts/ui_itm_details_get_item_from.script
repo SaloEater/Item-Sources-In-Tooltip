@@ -13,8 +13,7 @@ function get_items_that_produce(target_section)
 		return {}, {}
 	end
 
-	local result_items = {}
-	local result_counts = {}
+	local temp_results = {}
 	local ini = itms_manager.ini_parts
 
 	-- Get number of lines in [nor_parts_list] section
@@ -36,12 +35,27 @@ function get_items_that_produce(target_section)
 				end
 			end
 
-			-- If found at least once, add to results
+			-- If found at least once, add to temporary results
 			if count > 0 then
-				result_items[#result_items + 1] = item_section
-				result_counts[#result_counts + 1] = count
+				temp_results[#temp_results + 1] = {
+					item = item_section,
+					count = count
+				}
 			end
 		end
+	end
+
+	-- Sort by count in descending order (highest count first)
+	table.sort(temp_results, function(a, b)
+		return a.count > b.count
+	end)
+
+	-- Split into separate arrays for items and counts
+	local result_items = {}
+	local result_counts = {}
+	for i=1, #temp_results do
+		result_items[#result_items + 1] = temp_results[i].item
+		result_counts[#result_counts + 1] = temp_results[i].count
 	end
 
 	return result_items, result_counts
