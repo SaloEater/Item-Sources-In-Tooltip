@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <!-- Sorter -->
+    <string id="ui_get_item_from">
+        <text>Receive from</text>
+    </string>
+</string_table>

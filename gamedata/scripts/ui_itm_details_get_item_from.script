@@ -1,0 +1,73 @@
+--[[
+	Get Item From Mod
+	Shows which items can be disassembled to obtain the current item
+	Adds "Receive from" section to item details UI
+--]]
+
+
+------------------------------------------------------------
+-- Reverse Lookup Function
+------------------------------------------------------------
+function get_items_that_produce(target_section)
+	if not (target_section and itms_manager.ini_parts) then
+		return {}
+	end
+
+	local result = {}
+	local ini = itms_manager.ini_parts
+
+	-- Get number of lines in [nor_parts_list] section
+	local n = ini:line_count("nor_parts_list")
+
+	-- Iterate through each line in the section
+	for i=0, n-1 do
+		local result_str, item_section, parts_str = ini:r_line_ex("nor_parts_list", i, "", "")
+
+		if item_section and parts_str and parts_str ~= "" then
+			-- Parse the comma-separated parts list
+			local parts_list = str_explode(parts_str, ",")
+
+			-- Check if target_section is in this item's output
+			for j=1, #parts_list do
+				if parts_list[j] == target_section then
+					result[#result + 1] = item_section
+					break  -- Found it, no need to check other parts
+				end
+			end
+		end
+	end
+
+	return result
+end
+
+
+------------------------------------------------------------
+-- Monkey-Patch UIItemSheet:Reset
+------------------------------------------------------------
+-- Store original Reset function
+local original_reset = ui_itm_details.UIItemSheet.Reset
+
+-- Override with extended version
+function ui_itm_details.UIItemSheet:Reset(obj)
+	-- Call original function first
+	original_reset(self, obj)
+
+	-- Get item section
+	local sec = ini_sys:r_string_ex(obj:section(),"parent_section") or obj:section()
+
+	-- Find items that disassemble into this item
+	local source_items = get_items_that_produce(sec)
+
+	if source_items and (#source_items > 0) then
+		local xml = self.xml
+
+		-- Add section header
+		self:AddText(xml, "text_b_l", 0, game.translate_string("ui_get_item_from"))
+
+		-- Add container with source items
+		self.CC["get_from"] = self:AddContainer(xml, "cont", 0, source_items)
+
+		-- Add separator line
+		self:AddLine(xml, 0)
+	end
+end
