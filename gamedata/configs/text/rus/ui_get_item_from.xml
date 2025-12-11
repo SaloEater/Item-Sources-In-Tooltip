@@ -2,6 +2,6 @@
 <string_table>
     <!-- Sorter -->
     <string id="ui_get_item_from">
-        <text>Received from disassembling</text>
+        <text>Получается при разборе</text>
     </string>
 </string_table>

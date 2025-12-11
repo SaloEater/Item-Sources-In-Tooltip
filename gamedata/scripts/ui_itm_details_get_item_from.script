@@ -6,6 +6,21 @@
 
 
 ------------------------------------------------------------
+-- Monkey-patch UICellContainer:GetSortMethod to add custom sort
+------------------------------------------------------------
+local original_GetSortMethod = utils_ui.UICellContainer.GetSortMethod
+
+function utils_ui.UICellContainer:GetSortMethod()
+	if self.sort_method == "by_index" then
+		return function(t, a, b)
+			return a < b  -- Sort by index to preserve array order
+		end
+	end
+	return original_GetSortMethod(self)
+end
+
+
+------------------------------------------------------------
 -- Reverse Lookup Function
 ------------------------------------------------------------
 function get_items_that_produce(target_section)
@@ -50,12 +65,12 @@ function get_items_that_produce(target_section)
 		return a.count > b.count
 	end)
 
-	-- Split into separate arrays for items and counts
+	-- Create result arrays: items indexed by position, counts indexed by section name
 	local result_items = {}
 	local result_counts = {}
 	for i=1, #temp_results do
-		result_items[#result_items + 1] = temp_results[i].item
-		result_counts[#result_counts + 1] = temp_results[i].count
+		result_items[i] = temp_results[i].item
+		result_counts[temp_results[i].item] = temp_results[i].count  -- Index by section name!
 	end
 
 	return result_items, result_counts
@@ -77,7 +92,7 @@ function ui_itm_details.UIItemSheet:Reset(obj)
 	local sec = ini_sys:r_string_ex(obj:section(),"parent_section") or obj:section()
 
 	-- Find items that disassemble into this item
-	local source_items, source_counts = get_items_that_produce(sec)
+	local source_items, source_counts = ui_itm_details_get_item_from.get_items_that_produce(sec)
 
 	if source_items and (#source_items > 0) then
 		local xml = self.xml
@@ -85,22 +100,29 @@ function ui_itm_details.UIItemSheet:Reset(obj)
 		-- Add section header
 		self:AddText(xml, "text_b_l", 0, game.translate_string("ui_get_item_from"))
 
-		-- Add container with source items and counts
-		self.CC["get_from"] = self:AddContainer(xml, "cont", 0, source_items, source_counts)
+		-- Add container with source items
+		self.CC["get_from"] = self:AddContainer(xml, "cont", 0, source_items)
 
-		-- Add count using the proper counter element (same as inventory)
+		-- Set custom sort method and re-init to apply our sort order
+		self.CC["get_from"].sort_method = "by_index"
+		self.CC["get_from"]:Reinit(source_items)
+
+		-- Manually set the count info for each cell (indexed by section name)
 		for idx, ci in pairs(self.CC["get_from"].cell) do
-			if ci:IsShown() and ci.flags.info then
-				local count = ci.flags.info
+			if ci:IsShown() and ci.section then
+				local count = source_counts[ci.section]
+				if count then
+					ci.flags.info = count
 
-				-- Initialize counter element if it doesn't exist
-				if (not ci.cnt) then
-					ci.cnt = xml:InitStatic("itm_details:form:cont:cell:cnt", ci.cell)
+					-- Initialize counter element if it doesn't exist
+					if (not ci.cnt) then
+						ci.cnt = xml:InitStatic("itm_details:form:cont:cell:cnt", ci.cell)
+					end
+
+					-- Set counter text and show it
+					ci.cnt:TextControl():SetText("x" .. tostring(count))
+					ci.cnt:Show(true)
 				end
-
-				-- Set counter text and show it
-				ci.cnt:TextControl():SetText("x" .. tostring(count))
-				ci.cnt:Show(true)
 			end
 		end
 

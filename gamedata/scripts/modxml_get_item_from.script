@@ -1,0 +1,34 @@
+--[[
+	Get Item From Mod - DXML Script
+	Injects counter element into ui_item_detail.xml files
+--]]
+
+function on_xml_read()
+	RegisterScriptCallback("on_xml_read", function(xml_file_name, xml_obj)
+		-- Check if this is one of the item detail files we want to modify
+		if xml_file_name == [[ui\ui_item_detail.xml]]
+		or xml_file_name == [[ui\ui_item_detail_16.xml]] then
+
+			-- Find the <cont> element inside <form>
+			local res = xml_obj:query("itm_details > form > cont")
+
+			if is_not_empty(res) then
+				local cont_el = res[1]
+
+				-- Check if we haven't already added it (to avoid duplicates)
+				if is_empty(xml_obj:query("itm_details > form > cont > cell > cnt")) then
+					-- Add the cell with counter element
+					local counter_xml =
+[[<cell stretch="1">
+	<cnt x="-1" y="-1" width="17" height="11" stretch="1">
+		<texture a="200">ui_item_count_back</texture>
+		<text x="0" y="0" width="17" height="11" font="arial_14" color="ui_2" align="c" vert_align="c"/>
+	</cnt>
+</cell>
+]]
+					xml_obj:insertFromXMLString(counter_xml, cont_el)
+				end
+			end
+		end
+	end)
+end
