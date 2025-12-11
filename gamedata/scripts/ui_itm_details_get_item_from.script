@@ -10,10 +10,11 @@
 ------------------------------------------------------------
 function get_items_that_produce(target_section)
 	if not (target_section and itms_manager.ini_parts) then
-		return {}
+		return {}, {}
 	end
 
-	local result = {}
+	local result_items = {}
+	local result_counts = {}
 	local ini = itms_manager.ini_parts
 
 	-- Get number of lines in [nor_parts_list] section
@@ -27,17 +28,23 @@ function get_items_that_produce(target_section)
 			-- Parse the comma-separated parts list
 			local parts_list = str_explode(parts_str, ",")
 
-			-- Check if target_section is in this item's output
+			-- Count how many times target_section appears in this item's output
+			local count = 0
 			for j=1, #parts_list do
 				if parts_list[j] == target_section then
-					result[#result + 1] = item_section
-					break  -- Found it, no need to check other parts
+					count = count + 1
 				end
+			end
+
+			-- If found at least once, add to results
+			if count > 0 then
+				result_items[#result_items + 1] = item_section
+				result_counts[#result_counts + 1] = count
 			end
 		end
 	end
 
-	return result
+	return result_items, result_counts
 end
 
 
@@ -56,7 +63,7 @@ function ui_itm_details.UIItemSheet:Reset(obj)
 	local sec = ini_sys:r_string_ex(obj:section(),"parent_section") or obj:section()
 
 	-- Find items that disassemble into this item
-	local source_items = get_items_that_produce(sec)
+	local source_items, source_counts = get_items_that_produce(sec)
 
 	if source_items and (#source_items > 0) then
 		local xml = self.xml
@@ -64,8 +71,24 @@ function ui_itm_details.UIItemSheet:Reset(obj)
 		-- Add section header
 		self:AddText(xml, "text_b_l", 0, game.translate_string("ui_get_item_from"))
 
-		-- Add container with source items
-		self.CC["get_from"] = self:AddContainer(xml, "cont", 0, source_items)
+		-- Add container with source items and counts
+		self.CC["get_from"] = self:AddContainer(xml, "cont", 0, source_items, source_counts)
+
+		-- Add count using the proper counter element (same as inventory)
+		for idx, ci in pairs(self.CC["get_from"].cell) do
+			if ci:IsShown() and ci.flags.info then
+				local count = ci.flags.info
+
+				-- Initialize counter element if it doesn't exist
+				if (not ci.cnt) then
+					ci.cnt = xml:InitStatic("itm_details:form:cont:cell:cnt", ci.cell)
+				end
+
+				-- Set counter text and show it
+				ci.cnt:TextControl():SetText("x" .. tostring(count))
+				ci.cnt:Show(true)
+			end
+		end
 
 		-- Add separator line
 		self:AddLine(xml, 0)
